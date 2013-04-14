@@ -1,0 +1,1405 @@
+<!doctype html>
+<html><head><script src="enchant.js"></script></head>
+<body style="margin:0; padding: 0;">
+<script>
+    enchant(); // initialize
+	var U_PADDING=10;
+	var B_PADDING=20;
+	var L_PADDING=10;
+	var R_PADDING=10;
+	var STAGE_WIDTH=1200;
+	var STAGE_HEIGHT=800;
+
+	//var game = new Game(280,320);
+	var game = new Game(L_PADDING+R_PADDING+STAGE_WIDTH,U_PADDING+B_PADDING+STAGE_HEIGHT);
+
+	//global
+	var PBULLET_MAX=20;
+	var PBULLET_RATE=7;
+	var ENFORCER_HATCHMAX=3;
+	var ENFORCER_COUNTMAX=9;
+	var TANK_HATCHMAX=3;
+	var TANK_COUNTMAX=9;
+	var SHOOT_RELATIVE=1;
+
+	var label = enchant.Label();
+	var label2 = enchant.Label();
+	label2.color ="white";label2.x=10;label2.y=U_PADDING+STAGE_HEIGHT;
+	label2.text="test";
+	label2.scaleX=0.7;
+	label2.scaleY=0.7;
+	game.rootScene.addChild(label2);
+	label.color ="white";label.x=10;label.y=10;
+	label.text="test";
+	label.scaleX=0.7;
+	label.scaleY=0.7;
+	game.rootScene.addChild(label);
+
+	joyL=0; joyR=0; joyU=0; joyD=0;
+
+	enforcerhatch_count=0;
+	enforcer_count=0;
+	tankhatch_count=0;
+	tank_count=0;
+
+	touchX=-1;
+	touchY=-1;
+	playerXpos=0;
+	playerYpos=0;
+	prev_playerXpos=0;
+	prev_playerYpos=0;
+	shootrelative=SHOOT_RELATIVE;
+
+
+
+	game.preload('mammy_move1_7_14.png','player_move1_7_12.png','player_bullet1_5_1.png','mikey_move1_5_11.png','daddy_move1_8_13.png','hulk_born1_13_66.png','hulk_move1_13_16.png','grunt_move1_9_13.png','deadmark1_11_11.png','gruntdead1_9_78.png','enforcer_move1_9_11.png','enforcer_hatch1_9_9.png','enforcer_bullet1_7_7.png','enforcer_die1_34_41.png','tank_hatch2_15_15.png','tank_move1_13_16.png','tank_bullet1_7_7.png','tankdead1_61_66.png'); // preload image
+
+	game.rootScene.backgroundColor="black";
+	game.fps = 60;
+	game.keybind('Z'.charCodeAt(0), 'a');   // 'Z' Key を 'a' ボタンとして割り当てる
+	game.keybind('X'.charCodeAt(0), 'b');   // 'X' Key を 'b' ボタンとして割り当てる
+
+	var Robotrons = enchant.Class.create(enchant.Sprite, {
+       initialize: function(x, y) {
+
+			this.speed=0;
+			this.freq=4;
+			this.ax=0;
+			this.ay=0;
+			this.pre_ax=0;
+			this.pre_ay=0;
+            this.xpos = x;
+            this.ypos = y;
+            this.x = x;
+            this.y = y;
+
+			this.frame_start=0;
+            this.frame = this.frame_start;
+			this.frameIndex=this.frame_start;
+			this.frame_number=0;
+			this.frame_up=0; this.frame_down=4;
+			this.frame_left=8; this.frame_right=12;
+
+			this.dir_u=rand(2);
+			this.dir_d=this.dir_u>=1?0:rand(2);
+			this.dir_l=rand(2);
+			this.dir_r=this.dir_l>=1?0:rand(2);
+			this.nextframe= 50+rand(200);
+
+		}
+
+	});
+
+
+
+//Player
+
+	var Player = enchant.Class.create(Robotrons, {
+       initialize: function(x, y) {
+
+			this.pre_shot=0;
+			this.bulletcount=0;
+
+
+			Robotrons.call(this,x,y);
+			enchant.Sprite.call(this, 7, 12);
+			this.image = game.assets['player_move1_7_12.png'];
+			//function initialize_all(obj,x,y,sp,frq,fr_s,frnum,fr_u,fr_d,fr_l,fr_r)
+			initialize_all(this,x,y,2,2,4,4,0,4,8,12);
+
+            game.rootScene.addChild(this);
+
+
+            this.addEventListener('enterframe', function() {
+				if(game.joyU) this.ay=-1*this.speed;
+				if(game.joyD)this.ay=this.speed;
+				if(game.joyL)this.ax=-1*this.speed;
+				if(game.joyR)this.ax=this.speed;
+
+				playerXpos=this.x;
+				playerYpos=this.y;
+
+				if(this.ay!=0 && this.ax==0){
+					if((this.pre_ax!=this.ax) ||(this.pre_ay!=this.ay))
+					this.frameIndex=this.ay<0?this.frame_start=this.frame_up:this.frame_start=this.frame_down;
+
+				}
+				if(this.ax!=0 && this.pre_ax!=this.ax){
+					this.frameIndex=this.ax>0?this.frame_start=this.frame_right:this.frame_start=this.frame_left;
+
+					
+				}
+				
+				//if(this.age>game.fps*10)game.rootScene.removeChild(this);
+
+				if(game.frame%this.freq==0){
+					if(this.ax!=0 || this.ay!=0){
+
+						this.xpos+=this.ax;
+						this.ypos+=this.ay;
+						this.xpos=bound(L_PADDING,L_PADDING+STAGE_WIDTH-this.width,this.xpos);
+						this.ypos=bound(U_PADDING,U_PADDING+STAGE_HEIGHT-this.height,this.ypos);
+						this.x=Math.floor(this.xpos);
+						this.y=Math.floor(this.ypos);
+						playerXpos=this.x;
+						playerYpos=this.y;
+
+						this.frame=this.frameIndex;
+						this.frameIndex+=1;
+						if(this.frameIndex>=this.frame_start+this.frame_number)this.frameIndex=this.frame_start;
+					}
+				}
+				this.pre_ax=this.ax;
+				this.pre_ay=this.ay;
+				this.ax=0;
+				this.ay=0;
+
+				if(touchX!=-1&&this.bulletcount<PBULLET_MAX&&((this.pre_shot==0)||(game.frame-this.pre_shot>PBULLET_RATE))){
+					if(shootrelative==1){
+						pbullet = new Playerbullet( this, this.x+this.width/2,this.y+this.height/2,this.x-prev_playerXpos,this.y-prev_playerYpos);
+					}else{
+						pbullet = new Playerbullet( this, this.x+this.width/2,this.y+this.height/2,0,0);
+					}
+					this.bulletcount+=1;
+					this.pre_shot=game.frame;
+				}
+
+            });
+		}
+		,
+		sub_bullet: function(){
+			this.bulletcount+=1;
+			if(this.bulletcount> PBULLET_MAX)this.bulletcount=PBULLET_MAX;
+
+		}
+		,
+		add_bullet: function(){
+			this.bulletcount-=1;
+			if(this.bulletcount<0)this.bulletcount=0;
+
+		}
+     });
+
+
+
+
+//player bullet
+
+	var Playerbullet = enchant.Class.create(Robotrons, {
+		initialize: function(pl, x, y,rx,ry) {
+
+			this.dx=1;
+			this.dy=1;
+			this.absdx=0.1;
+			this.absdy=0.1;
+			//this.pl=player;
+
+			//Robotrons.call(this,x,y);
+			enchant.Sprite.call(this, 5, 1);
+			this.image = game.assets['player_bullet1_5_1.png'];
+			//function initialize_all(obj,x,y,sp,frq,fr_s,frnum,fr_u,fr_d,fr_l,fr_r)
+			initialize_all(this,x,y,5,1,0,4,0,0,0,0);
+			
+			//game.bulletcount+=1;
+
+            game.rootScene.addChild(this);
+
+			set_ax(this, x-rx, y-ry, touchX,touchY);
+
+			this.x-=4;
+			//this.x=(this.ax<0)?this.x-8:this.x-4;
+
+			this.scaleY=2;
+			//this.rotation=Math.atan(this.absdy/this.absdx)/3.14*180;
+			this.rotation=Math.atan(this.dy/((this.dx==0)?0.01:this.dx))*57.3;
+
+
+			//label.text="bulletcount: "+pl.bulletcount+" touchX: "+touchX + "\n playerX: "+playerXpos+" touchY: "+touchY + " playerY: "+playerYpos +" this.ax: " +this.ax +" this.ay: " +this.ay+ "enforcerhatch_count: "+enforcerhatch_count;
+
+            this.addEventListener('enterframe', function() {
+
+				if(this.ax!=0 || this.ay!=0){
+					//label.text="this.ax: " + this.ax +"this.ay: "+ this.ay;
+
+					this.xpos+=this.ax;
+					this.ypos+=this.ay;
+					this.x=Math.floor(this.xpos);
+					this.y=Math.floor(this.ypos);
+
+					this.frame=this.frameIndex;
+					this.frameIndex+=1;
+					if(this.frameIndex>=this.frame_start+this.frame_number)this.frameIndex=this.frame_start;
+				}
+
+				if(this.x<=L_PADDING||this.x>=L_PADDING+STAGE_WIDTH||this.y<=U_PADDING||this.y>=U_PADDING+STAGE_HEIGHT){
+					pl.add_bullet();
+					game.rootScene.removeChild(this);
+				}
+
+            });
+		}
+     });
+
+//for destructable enemy
+
+	 var Enemy_destructable = enchant.Class.create(Robotrons, {
+		initialize:function(x,y){
+		}
+	});
+
+
+//Quarks
+	var TankHatch = enchant.Class.create(Enemy_destructable, {
+       initialize: function(x, y,tow) {
+
+		   enchant.Sprite.call(this, 15, 15);
+			this.image = game.assets['tank_hatch2_15_15.png'];
+
+			//function initialize_all(obj,x,y,sp,frq,fr_s,frnum,fr_u,fr_d,fr_l,fr_r)
+			initialize_all(this,x,y,2,1,0,8,0,0,0,0);
+
+			this.eggs= 3+rand(3);	
+			this.hatch_rate=30+rand(100);
+
+			this.move_rate=40;
+			this.toward_rate=0;
+			this.init=1;
+
+            game.rootScene.addChild(this);
+			
+			this.dir_u=rand(2);
+			this.dir_d=this.dir_u>=1?0:rand(2);
+			this.dir_l=rand(2);
+			this.dir_r=this.dir_l>=1?0:rand(2);
+			this.nextframe= 20+rand(40);
+
+            this.addEventListener('enterframe', function() {
+				this.speed=1.3+rand(2);
+				tank_move(this,20+rand(40),playerXpos,playerYpos,this.toward_rate);
+				this.scaleX=(30-this.age%60)==0?1:(30-this.age%60)/30;
+				this.scaleY=(30-this.age%60)==0?1:(30-this.age%60)/30;
+				
+				if(this.age>this.hatch_rate){
+					this.hatch_rate+=30+rand(80);
+					if(this.eggs>0 && tank_count<TANK_COUNTMAX){
+						var tank = new Tank(this.x, this.y,this.toward_rate);
+						this.eggs-=1;
+						tank_count+=1;
+						
+					}
+
+				}
+
+				if(this.eggs<=0){
+					tankhatch_count-=1;
+					game.rootScene.removeChild(this);
+				}
+
+            });
+
+        }
+		,
+		die: function(){
+			deadmark= new Deadmark(this.x,this.y);
+			tankhatch_count-=1;
+			game.rootScene.removeChild(this);
+		}
+     });
+
+
+
+//Tank
+	 var Tank = enchant.Class.create(Enemy_destructable, {
+       initialize: function(x, y,tow) {
+
+
+			enchant.Sprite.call(this, 13, 16);
+			this.image = game.assets['tank_move1_13_16.png'];
+			//function initialize_all(obj,x,y,sp,frq,fr_s,frnum,fr_u,fr_d,fr_l,fr_r)
+			initialize_all(this,x,y,5,2,5,4,5,5,5,5);
+			//this.frame=[1,1,2,2,3,3,4,4];	  //growing
+			this.frame=[5,5,5,5,6,6,6,6,7,7,7,7];
+
+			this.toward_rate=-0.3;
+			this.move_rate=60;
+			this.shoot_rate=120+rand(60);
+			this.freq=5+rand(20);
+
+			this.nextframe= 100+rand(this.move_rate);
+
+            game.rootScene.addChild(this);
+
+            this.addEventListener('enterframe', function() {
+
+				this.speed=0.4+rand(0.5);
+				tank_move(this,40+rand(40),playerXpos,playerYpos,this.toward_rate);
+
+
+				if(this.age>this.shoot_rate){
+					tankbullet=new Tankbullet(this.x,this.y);
+					this.shoot_rate+=120+rand(60);
+				}
+
+
+            });
+
+        }
+		,
+		die: function(){
+			tankdead= new Tankdead(this.x,this.y,0,0);
+			tank_count-=1;
+			game.rootScene.removeChild(this);
+		}
+     });
+
+//Tankdead motion must work on later
+	 var Tankdead = enchant.Class.create(Robotrons, {
+		initialize: function(x,y,sx,sy){
+			enchant.Sprite.call(this, 61, 66);
+			this.image = game.assets['tankdead1_61_66.png'];
+			this.frame=[1,2,2,3,3,4,4,4,null];
+			this.x=x-28;this.y=y-30;
+            game.rootScene.addChild(this);
+
+			j=4+rand(2);
+            this.addEventListener('enterframe', function() {
+				this.scaleX+=sx;	
+				this.scaleY+=sy;	
+				if(this.age>j)game.rootScene.removeChild(this);
+            });
+		}
+	
+	});
+
+//Tank shells
+	 var Tankbullet = enchant.Class.create(Enemy_destructable, {
+		initialize: function( x, y) {
+
+			this.dx=1;
+			this.dy=1;
+			this.absdx=0.1;
+			this.absdy=0.1;
+			this.recalc_rate=5000+rand(5);
+			this.life=100+rand(60);
+
+			//Robotrons.call(this,x,y);
+			enchant.Sprite.call(this, 7, 7);
+			this.image = game.assets['tank_bullet1_7_7.png'];
+			//function initialize_all(obj,x,y,sp,frq,fr_s,frnum,fr_u,fr_d,fr_l,fr_r)
+			initialize_all(this,x,y,2,1,0,3,0,0,0,0);
+			
+			this.xpos+=7;
+			this.ypos+=7;
+
+            game.rootScene.addChild(this);
+			this.frame=[1,1,2,2];
+
+			calc_enforcer_ax(this, x,y,mirrorx(playerXpos)+rand(10)-5, mirrory(playerYpos)+rand(10)-5,3+rand(2),0);
+
+
+            this.addEventListener('enterframe', function() {
+				if(game.frame%this.recalc_rate==0){
+					calc_enforcer_ax(this, x,y,mirrorx(playerXpos+rand(10)-5), mirrory(playerYpos+rand(10)-5),3+rand(2),0);
+				}
+
+				if(this.ax!=0 || this.ay!=0){
+					//label.text="this.ax: " + this.ax +"this.ay: "+ this.ay;
+
+					this.xpos+=this.ax;
+					this.ypos+=this.ay;
+
+					this.ax=((L_PADDING>=this.xpos)||(L_PADDING+STAGE_WIDTH-this.width<=this.xpos))?this.ax*-1:this.ax;
+					this.ay=((U_PADDING>=this.ypos)||(U_PADDING+STAGE_HEIGHT-this.width<=this.ypos))?this.ay*-1:this.ay;
+
+					this.x=Math.floor(this.xpos);
+					this.y=Math.floor(this.ypos);
+
+					this.frame=this.frameIndex;
+					this.frameIndex+=1;
+					if(this.frameIndex>=this.frame_start+this.frame_number)this.frameIndex=this.frame_start;
+				}
+
+				if(this.age>this.life){
+					game.rootScene.removeChild(this);
+				}
+
+            });
+	
+		}
+		,
+		die: function(){
+			game.rootScene.removeChild(this);
+		}
+     });
+
+
+ //Spheroids
+	 var EnforcerHatch = enchant.Class.create(Enemy_destructable, {
+       initialize: function(x, y,tow) {
+
+		   enchant.Sprite.call(this, 9, 9);
+			this.image = game.assets['enforcer_hatch1_9_9.png'];
+			//function initialize_all(obj,x,y,sp,frq,fr_s,frnum,fr_u,fr_d,fr_l,fr_r)
+			initialize_all(this,x,y,10,5,0,1,0,0,0,0);
+			this.eggs= 3+rand(3);	
+			this.move_rate=1000;
+			this.hatch_rate=30+rand(100);
+
+            game.rootScene.addChild(this);
+			
+			this.toward_rate=tow;
+			this.dir_u=rand(2);
+			this.dir_d=this.dir_u>=1?0:rand(2);
+			this.dir_l=rand(2);
+			this.dir_r=this.dir_l>=1?0:rand(2);
+			this.nextframe= 50+rand(this.move_rate);
+
+            this.addEventListener('enterframe', function() {
+				hulk_move(this,this.move_rate,playerXpos,playerYpos,this.toward_rate);
+				this.scaleX=(30-this.age%60)==0?1:(30-this.age%60)/30;
+				this.scaleY=(30-this.age%60)==0?1:(30-this.age%60)/30;
+				
+				if(this.age>this.hatch_rate){
+					this.hatch_rate+=30+rand(80);
+					if(this.eggs>0 && enforcer_count<ENFORCER_COUNTMAX){
+						var enforcer = new Enforcer(this.x, this.y,this.toward_rate);
+						this.eggs-=1;
+						enforcer_count+=1;
+						
+					}
+
+				}
+
+				if(this.eggs<=0){
+					enforcerhatch_count-=1;
+					game.rootScene.removeChild(this);
+				}
+
+            });
+
+        }
+		,
+		die: function(){
+			deadmark= new Deadmark(this.x,this.y);
+			enforcerhatch_count-=1;
+			game.rootScene.removeChild(this);
+		}
+     });
+
+
+//Enforcer motion
+
+	var Enforcer = enchant.Class.create(Enemy_destructable, {
+       initialize: function(x, y,tow) {
+
+			this.dx=1;
+			this.dy=1;
+			this.absdx=0.1;
+			this.absdy=0.1;
+			this.recalc_rate=3+rand(5);
+			this.appearing=1;
+
+			enchant.Sprite.call(this, 9, 11);
+			this.image = game.assets['enforcer_move1_9_11.png'];
+			//function initialize_all(obj,x,y,sp,frq,fr_s,frnum,fr_u,fr_d,fr_l,fr_r)
+			initialize_all(this,x,y,1,2,5,4,5,5,5,5);
+			this.frame=[1,1,2,2,3,3,4,4];	  //growing
+			this.toward_rate=tow;
+			this.move_rate=600;
+			this.shoot_rate=120+rand(60);
+
+			this.frameIndex=5;
+			this.frame_start=5;
+			this.frame_number=4;
+
+            game.rootScene.addChild(this);
+
+			calc_enforcer_ax(this, x,y,playerXpos+rand(100)-50, playerYpos+rand(100)-50,2,1.8);
+
+            this.addEventListener('enterframe', function() {
+
+				if(game.frame%this.recalc_rate==0){
+					calc_enforcer_ax(this, x,y,playerXpos+rand(100)-50, playerYpos+rand(100)-50,2,1.8);
+				}
+				if(this.frame>=4){
+					if(this.appearing==1){
+						this.frame=[4,5,6,7];
+						this.appearing=0;
+					}
+
+					if(this.ax!=0 || this.ay!=0){
+						//label.text="this.ax: " + this.ax +"this.ay: "+ this.ay;
+
+						this.xpos+=this.ax;
+						this.ypos+=this.ay;
+
+						this.xpos=bound(L_PADDING,L_PADDING+STAGE_WIDTH-this.width,this.xpos);
+						this.ypos=bound(U_PADDING,U_PADDING+STAGE_HEIGHT-this.height,this.ypos);
+
+						this.x=Math.floor(this.xpos);
+						this.y=Math.floor(this.ypos);
+
+					}
+
+					if(this.age>this.shoot_rate){
+						enforcerbullet=new Enforcerbullet(this.x,this.y);
+						this.shoot_rate+=120+rand(60);
+					}
+
+
+				}
+            });
+
+        }
+		,
+		die: function(){
+			enforcerdead= new Enforcerdead(this.x,this.y);
+			enforcer_count-=1;
+			game.rootScene.removeChild(this);
+		}
+     });
+
+
+//Enforcer dead motion
+
+	 var Enforcerdead = enchant.Class.create(Robotrons, {
+		initialize: function(x,y){
+			enchant.Sprite.call(this, 34, 41);
+			this.image = game.assets['enforcer_die1_34_41.png'];
+			this.frame=[1,1,2,2,3,3,4,4];
+			this.x=x;this.y=y-21;
+			if(rand(2)==1){
+				this.scaleX=-1;
+				this.x-=17;
+			}
+            game.rootScene.addChild(this);
+
+			j=6+rand(2);
+            this.addEventListener('enterframe', function() {
+				if(this.age>j)game.rootScene.removeChild(this);
+            });
+		}
+	
+	});
+
+
+//Enforcer stings
+
+
+	 var Enforcerbullet = enchant.Class.create(Enemy_destructable, {
+		initialize: function( x, y) {
+
+			this.dx=1;
+			this.dy=1;
+			this.absdx=0.1;
+			this.absdy=0.1;
+			this.recalc_rate=3+rand(5);
+			this.life=50+rand(60);
+
+			//Robotrons.call(this,x,y);
+			enchant.Sprite.call(this, 7, 7);
+			this.image = game.assets['enforcer_bullet1_7_7.png'];
+			//function initialize_all(obj,x,y,sp,frq,fr_s,frnum,fr_u,fr_d,fr_l,fr_r)
+			initialize_all(this,x,y,4,1,0,4,0,0,0,0);
+			
+
+            game.rootScene.addChild(this);
+			this.frame=[1,1,2,2];
+
+			calc_enforcer_ax(this, x,y,playerXpos+rand(50), playerYpos+rand(50)-25,5,0.9);
+
+
+            this.addEventListener('enterframe', function() {
+				if(game.frame%this.recalc_rate==0){
+					calc_enforcer_ax(this, x,y,playerXpos+rand(50), playerYpos+rand(50)-25,5,0.9);
+				}
+
+				if(this.ax!=0 || this.ay!=0){
+					//label.text="this.ax: " + this.ax +"this.ay: "+ this.ay;
+
+					this.xpos+=this.ax;
+					this.ypos+=this.ay;
+
+					this.xpos=bound(L_PADDING,L_PADDING+STAGE_WIDTH-this.width,this.xpos);
+					this.ypos=bound(U_PADDING,U_PADDING+STAGE_HEIGHT-this.height,this.ypos);
+
+					this.x=Math.floor(this.xpos);
+					this.y=Math.floor(this.ypos);
+
+					this.frame=this.frameIndex;
+					this.frameIndex+=1;
+					if(this.frameIndex>=this.frame_start+this.frame_number)this.frameIndex=this.frame_start;
+				}
+
+				if(this.age>this.life){
+					game.rootScene.removeChild(this);
+				}
+
+            });
+	
+		}
+		,
+		die: function(){
+			game.rootScene.removeChild(this);
+		}
+     });
+
+	 
+	 //Hulk appear motion
+	
+
+	 var Hulk_born = enchant.Class.create(Robotrons,{
+
+       initialize: function(x, y,tow,fr_s) {
+
+
+			Robotrons.call(this,x,y);
+			enchant.Sprite.call(this, 13, 66);
+			this.image = game.assets['hulk_born1_13_66.png'];
+			this.duration=3;
+			switch(fr_s){
+				case 0:
+				case 4:
+					this.frame=[1,1,1,2,2,2,3,3,3,4,4,4];
+					this.fr_end=4;
+					break;
+
+				case 8:
+					this.frame=[5,5,5,6,6,6,7,7,7,8,8,8];
+					this.fr_end=8;
+					break;
+
+				case 12:
+					this.frame=[12,12,12,11,11,11,10,10,10,9,9,9];
+					this.fr_end=9;
+					break;
+
+			}
+
+			this.x=x;
+			this.y=y-33;
+
+            game.rootScene.addChild(this);
+			
+			var i=6.4;
+
+            this.addEventListener('enterframe', function() {
+				this.scaleY=i;i=i<1?i:i-0.6;
+				if(this.frame==this.fr_end){
+					this.duration-=1;
+					if(this.duration==0){
+						hulk=new Hulk(x,y,tow,fr_s);
+						game.rootScene.removeChild(this);
+					}
+				}
+				
+			});
+	   }
+
+
+	});
+
+	 
+	 //Hulk motion
+	
+
+	var Hulk = enchant.Class.create(Robotrons, {
+       initialize: function(x, y,tow,fr_s) {
+
+			enchant.Sprite.call(this, 13, 16);
+			this.image = game.assets['hulk_move1_13_16.png'];
+			//function initialize_all(obj,x,y,sp,frq,fr_s,frnum,fr_u,fr_d,fr_l,fr_r)
+			initialize_all(this,x,y,2,5,fr_s,4,0,0,4,8);
+			
+			this.toward_rate=tow;
+			this.move_rate=600;
+			this.init=1;
+
+            game.rootScene.addChild(this);
+
+			switch(fr_s){
+				case 0:
+					this.dir_u=1;this.dir_d=0;this.dir_l=0;this.dir_r=0;
+					break;
+				case 4:
+					this.dir_u=0;this.dir_d=1;this.dir_l=0;this.dir_r=0;
+					break;
+				case 8:
+					this.dir_u=0;this.dir_d=0;this.dir_l=1;this.dir_r=0;
+					break;
+				case 12:
+					this.dir_u=0;this.dir_d=0;this.dir_l=0;this.dir_r=1;
+					break;
+
+			}
+			this.dir_u=rand(2);
+			this.dir_d=this.dir_u>=1?0:rand(2);
+			this.dir_l=(this.dir_u>=1||this.dir_d>=1)?0:rand(2);
+			this.dir_r=(this.dir_u>=1||this.dir_d>=1||this.dir_l>=1)?0:rand(2);
+			this.nextframe= 50+rand(this.move_rate);
+
+            this.addEventListener('enterframe', function() {
+				hulk_move(this,this.move_rate,playerXpos,playerYpos,this.toward_rate,1);
+				if(this.age>game.fps*10)game.rootScene.removeChild(this);
+				this.init=0;
+
+            });
+
+        }
+     });
+
+	 
+	 //Grunt appearing motion
+	
+	 var Grunt_born = enchant.Class.create(Robotrons,{
+
+       initialize: function(x, y) {
+
+
+			Robotrons.call(this,x,y);
+			enchant.Sprite.call(this, 9, 78);
+			this.image = game.assets['gruntdead1_9_78.png'];
+			this.frame=[4,4,4,3,3,3,2,2,2,1,1,1];
+			this.x=x;
+			this.y=y-38;
+
+            game.rootScene.addChild(this);
+
+            this.addEventListener('enterframe', function() {
+				if(this.frame==1){
+					grunt=new Grunt(x,y);
+					game.rootScene.removeChild(this);
+				}
+				
+			});
+	   }
+
+
+	});
+
+	 
+ //Grunt motion
+	
+	var Grunt = enchant.Class.create(Enemy_destructable, {
+       initialize: function(x, y) {
+
+			this.dx=1;
+			this.dy=1;
+			this.absdx=0.1;
+			this.absdy=0.1;
+
+			enchant.Sprite.call(this, 9, 13);
+			this.image = game.assets['grunt_move1_9_13.png'];
+			//function initialize_all(obj,x,y,sp,frq,fr_s,frnum,fr_u,fr_d,fr_l,fr_r)
+
+			initialize_all(this,x,y,5,1,4,4,4,4,4,4);
+			this.move_rate=100;
+			set_ax(this, this.x, this.y, playerXpos, playerYpos); 
+			this.nextframe= this.move_rate+rand(10);
+
+            game.rootScene.addChild(this);
+
+            this.addEventListener('enterframe', function() {
+
+				if(game.frame%this.nextframe==0){
+					set_ax(this, this.x, this.y, playerXpos, playerYpos);
+
+					this.xpos+=this.ax;
+					this.ypos+=this.ay;
+					this.x=Math.floor(this.xpos);
+					this.y=Math.floor(this.ypos);
+
+					this.nextframe= this.move_rate+rand(10);
+					this.move_rate=this.move_rate<10?10:this.move_rate-10;
+				}
+
+				if(this.ay!=0 && this.ax==0){
+					if((this.pre_ax!=this.ax) ||(this.pre_ay!=this.ay))
+					this.frameIndex=this.ay<0?this.frame_start=this.frame_up:this.frame_start=this.frame_down;
+
+				}
+				if(this.ax!=0 && this.pre_ax!=this.ax){
+					this.frameIndex=this.ax>0?this.frame_start=this.frame_right:this.frame_start=this.frame_left;
+				}
+				
+				if(this.age>game.fps*10)game.rootScene.removeChild(this);
+
+				if(game.frame%this.move_rate==0){
+
+					this.frame=this.frameIndex;
+					this.frameIndex+=1;
+					if(this.frameIndex>=this.frame_start+this.frame_number)this.frameIndex=this.frame_start;
+				}
+				this.pre_ax=this.ax;
+				this.pre_ay=this.ay;
+				this.ax=0;
+				this.ay=0;
+
+            });
+        }
+		,
+		die: function() {
+			gruntdead= new Gruntdead(this.x,this.y);
+			game.rootScene.removeChild(this);
+		}
+     });
+
+	 
+ //Gruntdead motion
+	
+
+	var Gruntdead = enchant.Class.create(Robotrons, {
+		initialize: function(x,y){
+			enchant.Sprite.call(this, 9, 78);
+			this.image = game.assets['gruntdead1_9_78.png'];
+			this.frame=[1,1,1,2,2,2,3,3,3,4,4,4,5,5,5,null];
+			this.x=x;this.y=y-39;
+
+            game.rootScene.addChild(this);
+
+			j=8+rand(5);
+            this.addEventListener('enterframe', function() {
+
+				if(this.age>j)game.rootScene.removeChild(this);
+            });
+		}
+	
+	});
+
+	 
+ //Deadmark for families
+	
+	var Deadmark = enchant.Class.create(Robotrons, {
+		initialize: function(x,y){
+			enchant.Sprite.call(this, 11, 11);
+			this.image = game.assets['deadmark1_11_11.png'];
+			this.frame=[1,2,3];
+			this.x=x;this.y=y;
+
+            game.rootScene.addChild(this);
+
+            this.addEventListener('enterframe', function() {
+				if(this.age>game.fps*1)game.rootScene.removeChild(this);
+            });
+		}
+	
+	});
+
+
+//family class for hit check
+
+
+	var Family = enchant.Class.create(Robotrons, {
+		initialize:function(x,y){
+
+		}
+		,
+		die: function(){
+			deadmark= new Deadmark(this.x,this.y);
+			game.rootScene.removeChild(this);
+		}
+	});
+
+
+//Mikey
+
+	var Mikey = enchant.Class.create(Family, {
+		initialize: function(x, y) {
+
+
+			enchant.Sprite.call(this, 5, 11);
+			this.image = game.assets['mikey_move1_5_11.png'];
+			//function initialize_all(obj,x,y,sp,frq,fr_s,frnum,fr_u,fr_d,fr_l,fr_r)
+			initialize_all(this,x,y,1,4,rand(3)*4,4,0,4,8,12);
+
+
+            game.rootScene.addChild(this);
+
+			this.dir_u=rand(2);
+			this.dir_d=this.dir_u>=1?0:rand(2);
+			this.dir_l=rand(2);
+			this.dir_r=this.dir_l>=1?0:rand(2);
+			this.nextframe= 50+rand(200);
+
+            this.addEventListener('enterframe', function() {
+				family_move(this,200);
+				if(this.age>game.fps*10)game.rootScene.removeChild(this);
+            });
+
+		}
+     });
+
+
+//Daddy
+
+	var Daddy = enchant.Class.create(Family, {
+       initialize: function(x, y) {
+
+			enchant.Sprite.call(this, 8, 13);
+			this.image = game.assets['daddy_move1_8_13.png'];
+			//function initialize_all(obj,x,y,sp,frq,fr_s,frnum,fr_u,fr_d,fr_l,fr_r)
+			initialize_all(this,x,y,1,4,rand(3)*4,4,0,4,8,12);
+
+
+            game.rootScene.addChild(this);
+
+			this.dir_u=rand(2);
+			this.dir_d=this.dir_u>=1?0:rand(2);
+			this.dir_l=rand(2);
+			this.dir_r=this.dir_l>=1?0:rand(2);
+			this.nextframe= 50+rand(200);
+
+
+            this.addEventListener('enterframe', function() {
+				family_move(this,200);
+				if(this.age>game.fps*10)game.rootScene.removeChild(this);
+            });
+        }
+     });
+
+
+//Mammy
+
+	var Mammy = enchant.Class.create(Family, {
+       initialize: function(x, y) {
+
+			enchant.Sprite.call(this, 7, 14);
+			this.image = game.assets['mammy_move1_7_14.png'];
+			//function initialize_all(obj,x,y,sp,frq,fr_s,frnum,fr_u,fr_d,fr_l,fr_r)
+			initialize_all(this,x,y,1,4,rand(3)*4,4,0,4,8,12);
+
+
+            game.rootScene.addChild(this);
+
+			this.dir_u=rand(2);
+			this.dir_d=this.dir_u>=1?0:rand(2);
+			this.dir_l=rand(2);
+			this.dir_r=this.dir_l>=1?0:rand(2);
+			this.nextframe= 50+rand(200);
+
+
+            this.addEventListener('enterframe', function() {
+				family_move(this,200);
+				if(this.age>game.fps*10)game.rootScene.removeChild(this);
+
+            });
+		}
+     });
+
+
+//Main routine
+
+	game.onload = function(){
+
+		/*
+		var scenechg=0;
+
+		var background = new Scene(L_PADDING+R_PADDING+STAGE_WIDTH, U_PADDING+B_PADDING+STAGE_HEIGHT);	// サーフェス生成
+		var foreground = new Scene(L_PADDING+R_PADDING+STAGE_WIDTH, U_PADDING+B_PADDING+STAGE_HEIGHT);	// サーフェス生成
+		var topscene = new Scene(L_PADDING+R_PADDING+STAGE_WIDTH, U_PADDING+B_PADDING+STAGE_HEIGHT);	// サーフェス生成
+
+		var player1= new Player2(L_PADDING+STAGE_WIDTH/2+10,U_PADDING+STAGE_HEIGHT/2,topscene);
+		var player2= new Player2(L_PADDING+STAGE_WIDTH/2+20,U_PADDING+STAGE_HEIGHT/2,topscene);
+		var player3= new Player2(L_PADDING+STAGE_WIDTH/2+30,U_PADDING+STAGE_HEIGHT/2,topscene);
+		var player4= new Player2(L_PADDING+STAGE_WIDTH/2+30,U_PADDING+STAGE_HEIGHT/2,game.rootScene);
+
+		surface.context.beginPath();
+		surface.context.moveTo(L_PADDING-2, U_PADDING-2);
+		surface.context.lineTo(L_PADDING-2, U_PADDING-2);
+		//surface.context.strokeStyle = "orange";
+		//surface.context.lineWidth = 2;
+
+
+
+		topscene.addEventListener('touchstart', function(e) {
+			touchX = e.x;
+			touchY = e.y;
+		});
+		topscene.addEventListener('enterframe',function(){
+			game.joyL=game.input.left;
+			game.joyR=game.input.right;
+			game.joyU=game.input.up;
+			game.joyD=game.input.down;
+
+			if(game.input.b){
+					game.popScene();
+			}
+		});
+
+		*/
+
+		game.rootScene.addEventListener('touchstart', function(e) {
+			touchX = e.x;
+			touchY = e.y;
+			prev_playerXpos=playerXpos;
+			prev_playerYpos=playerYpos;
+		});
+		game.rootScene.addEventListener('touchmove', function(e) {
+			touchX =e.x;
+			touchY =e.y;
+			prev_playerXpos=playerXpos;
+			prev_playerYpos=playerYpos;
+			//label.text="touchX: "+touchX+" touchY: "+touchY +"\n"
+			//+ "playerX: "+ playerXpos + " playerY: "+playerYpos+"\n"
+			//+"bulletcount: "+bulletcount;
+		});
+		game.rootScene.addEventListener('touchend', function(e) {
+			/*
+			touchX = -1;
+			touchY = -1;
+			//label.text="touchX: "+touchX+" touchY: "+touchY +"\n"+ "playerX: "+ playerXpos + " playerY: "+playerYpos;
+			*/
+			touchX =e.x;
+			touchY =e.y;
+			prev_playerXpos=playerXpos;
+			prev_playerYpos=playerYpos;
+		});
+		var t=-1;
+
+		var player= new Player(L_PADDING+STAGE_WIDTH/2,U_PADDING+STAGE_HEIGHT/2);
+		game.rootScene.addEventListener('enterframe', function() {
+			if(this.age%60==0){
+				if(t==-1){
+					pre_t=getTime();
+					t=pre_t;
+				}else{
+					pre_t=t;
+					t=getTime();
+					label2.text= "60 frames: "+(t-pre_t)+ " fps: " +60*1000/(t-pre_t);
+				}
+			}
+
+			game.joyL=game.input.left;
+			game.joyR=game.input.right;
+			game.joyU=game.input.up;
+			game.joyD=game.input.down;
+
+			var hits = Playerbullet.intersect(Enemy_destructable);
+            for(var i = 0, len = hits.length; i < len; i++){
+					game.rootScene.removeChild(hits[i][0]);
+					hits[i][1].die();
+					player.add_bullet();
+					break;
+            }
+			var hits = Playerbullet.intersect(Grunt);
+            for(var i = 0, len = hits.length; i < len; i++){
+					game.rootScene.removeChild(hits[i][0]);
+					hits[i][1].die();
+					player.add_bullet();
+            }
+			var hits = Playerbullet.intersect(Hulk);
+            for(var i = 0, len = hits.length; i < len; i++){
+					hits[i][1].x+=hits[i][0].ax*0.7;
+					hits[i][1].y+=hits[i][0].ay*0.7;
+					game.rootScene.removeChild(hits[i][0]);
+					player.add_bullet();
+            }
+ 
+			var hits = Hulk.intersect(Family);
+			for(var i = 0, len = hits.length; i < len; i++){
+				hits[i][1].die();
+			}
+
+            if(this.age % 40 == 0){
+				var mammy= new Mammy(L_PADDING+rand(STAGE_WIDTH-4), U_PADDING+rand(STAGE_HEIGHT-7));
+				var daddy= new Daddy(L_PADDING+rand(STAGE_WIDTH-4), U_PADDING+rand(STAGE_HEIGHT-7));
+				var mikey= new Mikey(L_PADDING+rand(STAGE_WIDTH-3), U_PADDING+rand(STAGE_HEIGHT-6));
+				var hulk_born= new Hulk_born(L_PADDING+rand(STAGE_WIDTH-7), U_PADDING+rand(STAGE_HEIGHT-8),0.5,rand(3)*4);
+				var grunt_born= new Grunt_born(L_PADDING+rand(STAGE_WIDTH-5), U_PADDING+rand(STAGE_HEIGHT-7));
+            }
+			if(this.age % game.fps*3 == 0){
+				if(tankhatch_count<TANK_HATCHMAX){
+					tankhatch_count+=1;
+					if(rand(2)>=1)
+					var tankhatch= new TankHatch(L_PADDING+rand(STAGE_WIDTH-5)*(rand(2)>=1?1:0), U_PADDING+(STAGE_HEIGHT-7)*(rand(2)>=1?1:0),1);
+					else
+					var tankhatch= new TankHatch(L_PADDING+(STAGE_WIDTH-5)*(rand(2)>=1?1:0), U_PADDING+rand(STAGE_HEIGHT-7)*(rand(2)>=1?1:0),1);
+				}
+				if(enforcerhatch_count<ENFORCER_HATCHMAX){
+					enforcerhatch_count+=1;
+					if(rand(2)>=1)
+						var enforcerhatch= new EnforcerHatch(L_PADDING+rand(STAGE_WIDTH-5)*(rand(2)>=1?1:0), U_PADDING+(STAGE_HEIGHT-7)*(rand(2)>=1?1:0),1);
+					else
+						var enforcerhatch= new EnforcerHatch(L_PADDING+(STAGE_WIDTH-5)*(rand(2)>=1?1:0), U_PADDING+rand(STAGE_HEIGHT-7)*(rand(2)>=1?1:0),1);
+				}
+            }
+			if(game.input.a)game.stop();
+			if(game.input.b){
+				/*
+				game.pushScene(topscene);
+				*/
+				shootrelative=shootrelative==1?0:1;;
+
+			}
+			if(shootrelative==1){
+				label.text="ralativemode";
+				//label.text="ralativemode" + "playerXpos: "+playerXpos+" playerYpos "+playerYpos+" prev_playerXpos: " + prev_playerXpos +" prev_playerYpos: "+ prev_playerYpos + "touchX: " + touchX +" touchY: " + touchY; 
+			}else{
+				label.text="absolutemode";
+				//label.text="absolutemode" + " prev_playerXpos: " + prev_playerXpos +" prev_playerYpos: "+ prev_playerYpos + "touchX: " + touchX +" touchY: " + touchY; 
+			}
+      });
+ 
+	
+
+        
+    };
+
+    game.start(); // start your game!
+
+	
+//utility function
+
+	function rand(num){ return Math.floor(Math.random() * num) };
+	function bound(min,max,pos){ return min>=pos?min:(pos>=max?max:pos)}; 
+	function bound_floor(min,max,pos){ return Math.floor(min>=pos?min:(pos>=max?max:pos))}; 
+
+	function mirrorx(xpos){
+		r=rand(3);
+		return r<1.5?xpos:(r<2.25?-1*xpos:2*(L_PADDING+STAGE_WIDTH)-xpos);
+	}
+	function mirrory(ypos){
+	r=rand(3);
+		return r<1.5?ypos:(r<2.25?-1*ypos:2*(UPADDING+STAGE_WIDTH)-ypos);
+	}
+
+	function initialize_all(obj,x,y,sp,frq,fr_s,frnum,fr_u,fr_d,fr_l,fr_r){
+		obj.speed=sp;
+		obj.freq=frq;
+		obj.ax=0;
+		obj.ay=0;
+		obj.pre_ax=0;
+		obj.pre_ay=0;
+		obj.xpos = x;
+		obj.ypos = y;
+		obj.x = x;
+		obj.y = y;
+
+		obj.frame_start=fr_s;
+		obj.frame = obj.frame_start;
+		obj.frameIndex=obj.frame_start;
+		obj.frame_number=frnum;
+		obj.frame_up=fr_u; obj.frame_down=fr_d;
+		obj.frame_left=fr_l; obj.frame_right=fr_r;
+	};
+
+	function tank_move(obj, freq, tox, toy, r ){
+		if(r!=0){
+			if(game.frame%obj.nextframe==0){
+			obj.dir_u=(toy-obj.y)>0?rand(2-r):rand(2+r);
+			obj.dir_d=obj.dir_u>=1?0:(toy-obj.y)>0?rand(2+r):rand(2-r);
+			obj.dir_l=(tox-obj.x)>0?rand(2-r):rand(2+r);
+			obj.dir_r=obj.dir_l>=1?0:(tox-obj.x)>0?rand(2+r):rand(2-r);
+			}
+		}else{
+			if(game.frame%obj.nextframe==0){
+			obj.dir_u=rand(2);
+			obj.dir_d=rand(2);
+			obj.dir_l=rand(2);
+			obj.dir_r=rand(2);
+			}
+
+		}
+
+		if(obj.dir_u>=1) obj.ay=-1*obj.speed;
+		if(obj.dir_d>=1)obj.ay=obj.speed;
+		if(obj.dir_l>=1)obj.ax=-1*obj.speed;
+		if(obj.dir_r>=1)obj.ax=obj.speed;
+
+		if(obj.ax!=0||obj.ay!=0){
+
+				obj.xpos+=obj.ax;
+				obj.ypos+=obj.ay;
+				obj.xpos=bound(L_PADDING,L_PADDING+STAGE_WIDTH-obj.width,obj.xpos);
+				obj.ypos=bound(U_PADDING,U_PADDING+STAGE_HEIGHT-obj.height,obj.ypos);
+
+				obj.x=Math.floor(obj.xpos);
+				obj.y=Math.floor(obj.ypos);
+
+				obj.nextframe= freq;
+
+		}
+
+	};
+
+
+	function hulk_move (obj,freq, tox, toy, r, fway) {
+		if(obj.init==0){
+
+			if(fway==1){
+				if(game.frame%obj.nextframe==0){
+				obj.dir_u=(toy-obj.y)>0?rand(2-r):rand(2+r);
+				obj.dir_d=obj.dir_u>=1?0:(toy-obj.y)>0?rand(2+r):rand(2-r);
+				obj.dir_l=(obj.dir_u>=1||obj.dir_d>=1)?0:((tox-obj.x)>0?rand(2-r):rand(2+r));
+				obj.dir_r=(obj.dir_u>=1||obj.dir_d>=1||obj.dir_l>=1)?0:((tox-obj.x)>0?rand(2+r):rand(2-r));
+				obj.nextframe= 50+rand(freq);
+				}
+
+			}else{
+				if(game.frame%obj.nextframe==0){
+				obj.dir_u=(toy-obj.y)>0?rand(2-r):rand(2+r);
+				obj.dir_d=obj.dir_u>=1?0:(toy-obj.y)>0?rand(2+r):rand(2-r);
+				obj.dir_l=(tox-obj.x)>0?rand(2-r):rand(2+r);
+				obj.dir_r=obj.dir_l>=1?0:(tox-obj.x)>0?rand(2+r):rand(2-r);
+				obj.nextframe= 50+rand(freq);
+				}
+			}
+		}
+
+		if(obj.dir_u>=1) obj.ay=-1*obj.speed;
+		if(obj.dir_d>=1)obj.ay=obj.speed;
+		if(obj.dir_l>=1)obj.ax=-1*obj.speed;
+		if(obj.dir_r>=1)obj.ax=obj.speed;
+
+		if(obj.ay!=0 && obj.ax==0){
+			if((obj.pre_ax!=obj.ax) ||(obj.pre_ay!=obj.ay))
+			obj.frameIndex=obj.ay<0?obj.frame_start=obj.frame_up:obj.frame_start=obj.frame_down;
+
+		}
+		if(obj.ax!=0 && obj.pre_ax!=obj.ax){
+			obj.frameIndex=obj.ax>0?obj.frame_start=obj.frame_right:obj.frame_start=obj.frame_left;
+		}
+
+		if(game.frame%obj.freq==0){
+
+				obj.xpos+=obj.ax;
+				obj.ypos+=obj.ay;
+				obj.xpos=bound(L_PADDING,L_PADDING+STAGE_WIDTH-obj.width,obj.xpos);
+				obj.ypos=bound(U_PADDING,U_PADDING+STAGE_HEIGHT-obj.height,obj.ypos);
+
+				obj.x=Math.floor(obj.xpos);
+				obj.y=Math.floor(obj.ypos);
+
+				obj.frame=obj.frameIndex;
+				obj.frameIndex+=1;
+				if(obj.frameIndex>=obj.frame_start+obj.frame_number)obj.frameIndex=obj.frame_start;
+		}
+		obj.pre_ax=obj.ax;
+		obj.pre_ay=obj.ay;
+		obj.ax=0;
+		obj.ay=0;
+	};
+
+	function family_move (obj,freq) {
+		if(game.frame%obj.nextframe==0){
+		obj.dir_u=rand(2);
+		obj.dir_d=obj.dir_u>=1?0:rand(2);
+		obj.dir_l=rand(2);
+		obj.dir_r=obj.dir_l>=1?0:rand(2);
+		obj.nextframe= 50+rand(freq);
+		}
+
+		if(obj.dir_u>=1) obj.ay=-1*obj.speed;
+		if(obj.dir_d>=1)obj.ay=obj.speed;
+		if(obj.dir_l>=1)obj.ax=-1*obj.speed;
+		if(obj.dir_r>=1)obj.ax=obj.speed;
+
+		if(obj.ay!=0 && obj.ax==0){
+			if((obj.pre_ax!=obj.ax) ||(obj.pre_ay!=obj.ay))
+			obj.frameIndex=obj.ay<0?obj.frame_start=obj.frame_up:obj.frame_start=obj.frame_down;
+
+		}
+		if(obj.ax!=0 && obj.pre_ax!=obj.ax){
+			obj.frameIndex=obj.ax>0?obj.frame_start=obj.frame_right:obj.frame_start=obj.frame_left;
+		}
+		
+
+		if(game.frame%obj.freq==0){
+			if(obj.ax!=0 || obj.ay!=0){
+
+				obj.xpos+=obj.ax;
+				obj.ypos+=obj.ay;
+				if(obj.xpos<L_PADDING){
+					obj.xpos=L_PADDING;
+					obj.dir_u=rand(2.5);
+					obj.dir_d=obj.dir_u>=1?0:rand(2.5);
+					obj.dir_l=0;
+					obj.dir_r=rand(2.5);
+				}
+				if(obj.xpos> L_PADDING+STAGE_WIDTH-obj.width/2){
+					obj.xpos=L_PADDING+STAGE_WIDTH-obj.width/2;
+					obj.dir_u=rand(2.5);
+					obj.dir_d=obj.dir_u>=1?0:rand(2.5);
+					obj.dir_l=rand(2.5);
+					obj.dir_r=0;
+				}
+				if(obj.ypos<U_PADDING){
+					obj.ypos=U_PADDING;
+					obj.dir_l=rand(2.5);
+					obj.dir_r=obj.dir_u>=1?0:rand(2.5);
+					obj.dir_u=0;
+					obj.dir_d=rand(2.5);
+				}
+
+				if(obj.ypos>U_PADDING+STAGE_HEIGHT-obj.height/2){
+					obj.ypos=U_PADDING+STAGE_HEIGHT-obj.height/2;
+					obj.dir_l=rand(2.5);
+					obj.dir_r=obj.dir_u>=1?0:rand(2.5);
+					obj.dir_u=rand(2.5);
+					obj.dir_d=0;
+				}
+
+				obj.x=Math.floor(obj.xpos);
+				obj.y=Math.floor(obj.ypos);
+
+				obj.frame=obj.frameIndex;
+				obj.frameIndex+=1;
+				if(obj.frameIndex>=obj.frame_start+obj.frame_number)obj.frameIndex=obj.frame_start;
+			}
+		}
+		obj.pre_ax=obj.ax;
+		obj.pre_ay=obj.ay;
+		obj.ax=0;
+		obj.ay=0;
+	};
+	
+
+	function set_ax(obj, x, y, tx, ty){
+
+		obj.dx=tx-x;
+		obj.dy=ty-y;
+
+		obj.absdx=Math.abs(obj.dx);
+		obj.absdy=Math.abs(obj.dy);
+		obj.absdx=obj.absdx==0?0.1:obj.absdx;
+		obj.absdy=obj.absdy==0?0.1:obj.absdy;
+		if(obj.absdx>obj.absdy){
+			obj.ax=obj.dx/obj.absdx*obj.speed;
+			obj.ay=obj.dy/obj.absdx*obj.speed;
+		}else{
+			obj.ax=obj.dx/obj.absdy*obj.speed;
+			obj.ay=obj.dy/obj.absdy*obj.speed;
+		}
+
+	}
+
+	function calc_enforcer_ax(obj, x, y, tx, ty, sp,repel){
+
+		var ratio;
+		obj.dx=tx-x;
+		obj.dy=ty-y;
+
+		obj.absdx=Math.abs(obj.dx);
+		obj.absdy=Math.abs(obj.dy);
+
+		obj.absdx=obj.absdx==0?0.1:obj.absdx;
+		obj.absdy=obj.absdy==0?0.1:obj.absdy;
+		if(obj.absdx>obj.absdy){
+			ratio=obj.absdx/STAGE_WIDTH;
+			obj.ax=obj.dx/obj.absdx*sp*ratio;
+			obj.ay=obj.dy/obj.absdx*sp*ratio;
+		}else{
+			ratio=obj.absdy/STAGE_HEIGHT;
+			obj.ax=obj.dx/obj.absdy*sp*ratio;
+			obj.ay=obj.dy/obj.absdy*sp*ratio;
+		}
+		obj.ax-=obj.ax*(1-ratio)*repel;
+		obj.ay-=obj.ay*(1-ratio)*repel;
+
+	}
+
+
+</script>
+</body>
+</html>
+
